@@ -1,0 +1,1766 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Taureno — Dashboard Financiero</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg:      #f5f4f0;
+      --kpi-bg:  #eeede7;
+      --card:    #ffffff;
+      --text:    #1a1a18;
+      --muted:   #6b6b68;
+      --label:   #888780;
+      --border:  rgba(0,0,0,0.10);
+      --sep:     rgba(0,0,0,0.06);
+      --green:   #0F6E56;
+      --blue:    #185FA5;
+      --red:     #a32d2d;
+      --radius:  12px;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    /* ── Loading bar ── */
+    #loading-bar {
+      position: fixed; top: 0; left: 0; right: 0; height: 2px;
+      background: var(--green);
+      transform: scaleX(0);
+      transform-origin: left;
+      transition: transform .3s ease;
+      z-index: 300;
+    }
+    #loading-bar.active { animation: load-progress 1.4s ease infinite; }
+    @keyframes load-progress {
+      0%   { transform: scaleX(0); opacity: 1; }
+      70%  { transform: scaleX(.8); opacity: 1; }
+      100% { transform: scaleX(1); opacity: 0; }
+    }
+
+    /* ── Header ── */
+    header {
+      padding: 36px 32px 24px;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      border-bottom: 0.5px solid var(--border);
+      margin-bottom: 32px;
+    }
+    .header-brand h1 {
+      font-size: 26px;
+      font-weight: 500;
+      letter-spacing: -.2px;
+      color: var(--text);
+      line-height: 1;
+    }
+    .header-brand p {
+      margin-top: 4px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    #last-updated { font-size: 12px; color: var(--label); }
+    .btn-refresh {
+      background: none;
+      border: 0.5px solid rgba(0,0,0,0.18);
+      color: var(--muted);
+      padding: 5px 13px;
+      border-radius: 7px;
+      cursor: pointer;
+      font-size: 12px;
+      font-family: inherit;
+      transition: background .15s;
+    }
+    .btn-refresh:hover { background: var(--kpi-bg); }
+
+    /* ── Layout ── */
+    .container { max-width: 1320px; margin: 0 auto; padding: 0 24px 48px; }
+    .card {
+      background: var(--card);
+      border-radius: var(--radius);
+      border: 0.5px solid var(--border);
+      padding: 24px;
+    }
+
+    /* ── Section title ── */
+    .section-title {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--label);
+      margin-bottom: 18px;
+      padding-bottom: 10px;
+      border-bottom: 0.5px solid var(--sep);
+    }
+
+    /* ── KPIs ── */
+    .kpis {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    @media(max-width:1100px){ .kpis { grid-template-columns: repeat(3,1fr); } }
+    @media(max-width:640px){  .kpis { grid-template-columns: repeat(2,1fr); } }
+
+    .kpi-card {
+      background: var(--kpi-bg);
+      border-radius: var(--radius);
+      padding: 18px 20px 16px;
+    }
+    .kpi-label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .8px;
+      color: var(--label);
+      margin-bottom: 10px;
+    }
+    .kpi-value {
+      font-size: 24px;
+      font-weight: 500;
+      color: var(--text);
+      line-height: 1;
+      letter-spacing: -.3px;
+    }
+    .kpi-value.c-green { color: var(--green); }
+    .kpi-value.c-blue  { color: var(--blue); }
+    .kpi-sub { font-size: 11px; color: var(--label); margin-top: 6px; }
+
+    /* ── Mid grid ── */
+    .mid-grid {
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+    @media(max-width:900px){ .mid-grid { grid-template-columns: 1fr; } }
+
+    /* ── Project Info ── */
+    .info-group { margin-bottom: 20px; }
+    .info-group:last-child { margin-bottom: 0; }
+    .info-group-title {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .8px;
+      color: var(--label);
+      margin-bottom: 8px;
+    }
+    .info-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      padding: 5px 0;
+      border-bottom: 0.5px solid rgba(0,0,0,0.05);
+    }
+    .info-row:last-child { border-bottom: none; }
+    .info-key { font-size: 12px; color: var(--muted); }
+    .info-val { font-size: 13px; font-weight: 500; color: var(--text); text-align: right; }
+
+    /* ── P&L table ── */
+    .pnl-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .pnl-table th {
+      text-align: left;
+      padding: 6px 10px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .7px;
+      color: var(--label);
+      border-bottom: 0.5px solid var(--border);
+    }
+    .pnl-table th:not(:first-child) { text-align: right; }
+    .pnl-table td {
+      padding: 6px 10px;
+      border-bottom: 0.5px solid rgba(0,0,0,0.04);
+      font-size: 13px;
+    }
+    .pnl-table td:not(:first-child) {
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+    .pnl-table tr.row-total td {
+      font-weight: 600;
+      border-top: 0.5px solid var(--border);
+      border-bottom: 0.5px solid var(--border);
+    }
+    .pnl-table tr.row-subtotal td { font-weight: 500; }
+    .pnl-table tr.row-section td {
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .8px;
+      color: var(--label);
+      padding-top: 16px;
+      border-bottom: none;
+    }
+    .num-pos  { color: var(--green); }
+    .num-neg  { color: var(--red);   }
+    .num-blue { color: var(--blue);  }
+    .indent   { padding-left: 22px !important; }
+    .pnl-note { font-size: 11px; color: var(--label); margin-top: 10px; text-align: right; }
+
+    /* ── Charts ── */
+    .chart-tabs { display: flex; gap: 2px; margin-bottom: 20px; flex-wrap: wrap; }
+    .tab-btn {
+      padding: 7px 16px;
+      border-radius: 8px;
+      border: none;
+      background: transparent;
+      color: var(--label);
+      cursor: pointer;
+      font-size: 13px;
+      font-family: inherit;
+      transition: all .15s;
+    }
+    .tab-btn:hover { background: var(--kpi-bg); color: var(--text); }
+    .tab-btn.active { background: var(--kpi-bg); color: var(--text); font-weight: 500; }
+    .chart-wrap { position: relative; height: 360px; }
+
+    /* ── CSV raw ── */
+    .csv-toggle {
+      background: none;
+      border: 0.5px solid rgba(0,0,0,0.15);
+      border-radius: 7px;
+      padding: 5px 12px;
+      font-size: 12px;
+      font-family: inherit;
+      color: var(--label);
+      cursor: pointer;
+    }
+    .csv-toggle:hover { background: var(--kpi-bg); }
+    .csv-table-wrap { overflow-x: auto; margin-top: 14px; display: none; }
+    .csv-table-wrap.open { display: block; }
+    .csv-table { border-collapse: collapse; font-size: 11px; min-width: 600px; }
+    .csv-table th, .csv-table td { padding: 4px 8px; border: 0.5px solid var(--border); white-space: nowrap; }
+    .csv-table th { background: var(--kpi-bg); font-weight: 600; }
+
+    /* ── Footer ── */
+    footer {
+      text-align: center;
+      padding: 28px 24px;
+      font-size: 11px;
+      color: var(--label);
+      border-top: 0.5px solid var(--border);
+      margin-top: 8px;
+    }
+  </style>
+</head>
+<body>
+
+<div id="loading-bar"></div>
+
+<header>
+  <div class="header-brand">
+    <h1>Taureno</h1>
+    <p>Dashboard Financiero &mdash; Volán</p>
+  </div>
+  <div class="header-right">
+    <span id="last-updated">—</span>
+    <button class="btn-refresh" onclick="loadAllData()">↻ Actualizar</button>
+  </div>
+</header>
+
+<div class="container">
+
+  <!-- KPIs -->
+  <div class="kpis">
+    <div class="kpi-card">
+      <div class="kpi-label">Ingresos Totales</div>
+      <div class="kpi-value" id="kpi-ingresos">$84.2M</div>
+      <div class="kpi-sub">Ventas del proyecto</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Utilidad Operación</div>
+      <div class="kpi-value c-green" id="kpi-utiop">$10.7M</div>
+      <div class="kpi-sub" id="kpi-utiop-pct">12.7% del ingreso</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Util. antes Impuestos</div>
+      <div class="kpi-value c-green" id="kpi-utibt">$8.3M</div>
+      <div class="kpi-sub" id="kpi-utibt-pct">9.9% del ingreso</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">VPN del Proyecto</div>
+      <div class="kpi-value c-blue" id="kpi-vpn">$7.9M</div>
+      <div class="kpi-sub">Valor Presente Neto</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Punto de Equilibrio</div>
+      <div class="kpi-value" id="kpi-pe">25.2 uds</div>
+      <div class="kpi-sub">Unidades para breakeven</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Precio Promedio</div>
+      <div class="kpi-value" id="kpi-precio">$3.0M</div>
+      <div class="kpi-sub">Por unidad</div>
+    </div>
+  </div>
+
+  <!-- Mid: Project Info | [Estado de Resultados + Indicadores stacked] -->
+  <div class="mid-grid">
+
+    <!-- Project Info -->
+    <div class="card">
+      <div class="section-title">Información del Proyecto</div>
+
+      <div class="info-group">
+        <div class="info-group-title">Superficies</div>
+        <div class="info-row"><span class="info-key">Terreno</span><span class="info-val" id="pi-terreno">—</span></div>
+        <div class="info-row"><span class="info-key">m² de construcción</span><span class="info-val" id="pi-construccion">—</span></div>
+        <div class="info-row"><span class="info-key">m² vendibles</span><span class="info-val" id="pi-vendibles">—</span></div>
+        <div class="info-row"><span class="info-key">Número de Unidades</span><span class="info-val" id="pi-unidades">—</span></div>
+        <div class="info-row"><span class="info-key">Eficiencia del Edificio</span><span class="info-val" id="pi-eficiencia">—</span></div>
+        <div class="info-row"><span class="info-key">Superficie Prom. / Unidad</span><span class="info-val" id="pi-area-prom">—</span></div>
+      </div>
+
+      <div class="info-group">
+        <div class="info-group-title">Calendario</div>
+        <div class="info-row"><span class="info-key">Inicio del proyecto</span><span class="info-val" id="pi-inicio">—</span></div>
+        <div class="info-row"><span class="info-key">Terminación de obra</span><span class="info-val" id="pi-entrega">—</span></div>
+        <div class="info-row"><span class="info-key">Duración total</span><span class="info-val" id="pi-duracion">—</span></div>
+      </div>
+
+      <div class="info-group">
+        <div class="info-group-title">Financiamiento</div>
+        <div class="info-row"><span class="info-key">Capital</span><span class="info-val" id="pi-capital">—</span></div>
+        <div class="info-row"><span class="info-key">Anticipos de clientes</span><span class="info-val" id="pi-anticipos">—</span></div>
+        <div class="info-row"><span class="info-key">Deuda sin reserva de intereses</span><span class="info-val" id="pi-deuda-sin">—</span></div>
+        <div class="info-row"><span class="info-key">Deuda + reserva de interés</span><span class="info-val" id="pi-deuda-con">—</span></div>
+      </div>
+    </div>
+
+    <!-- Right column: two stacked cards -->
+    <div style="display:flex;flex-direction:column;gap:16px">
+
+      <!-- Estado de Resultados -->
+      <div class="card">
+        <div class="section-title">Estado de Resultados</div>
+        <div style="overflow-x:auto">
+          <table class="pnl-table">
+            <thead>
+              <tr>
+                <th style="width:54%">Concepto</th>
+                <th>Importe (MXN)</th>
+                <th>%</th>
+              </tr>
+            </thead>
+            <tbody id="pnl-body"></tbody>
+          </table>
+        </div>
+        <p class="pnl-note" id="pnl-source">Fuente: hoja Resumen</p>
+      </div>
+
+      <!-- Indicadores -->
+      <div class="card">
+        <div class="section-title">Indicadores</div>
+        <div id="indicators-body"></div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Análisis de Ingresos -->
+  <div class="card" style="margin-bottom:20px">
+    <div class="section-title">Análisis de Ingresos</div>
+    <div style="display:flex;gap:0;align-items:flex-start">
+
+      <!-- Left: funding structure bar -->
+      <div id="ingresos-bar-container" style="flex-shrink:0"></div>
+
+      <!-- Right: grid — Mezcla+Flujo on top, full-width stairs below -->
+      <div style="flex:1;padding-left:28px;border-left:0.5px solid rgba(0,0,0,0.06)">
+
+        <!-- Top row: Mezcla + Flujo de Efectivo -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 32px;margin-bottom:12px">
+
+          <!-- MEZCLA DE PRODUCTO -->
+          <div class="info-group" style="margin-bottom:0">
+            <div class="info-group-title">Mezcla de Producto</div>
+            <div class="info-row">
+              <span class="info-key"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#378ADD;margin-right:6px;vertical-align:middle"></span>Modelo A (2 rec.)</span>
+              <span class="info-val" id="ai-modelo-a">18 unidades</span>
+            </div>
+            <div class="info-row">
+              <span class="info-key"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#1D9E75;margin-right:6px;vertical-align:middle"></span>Modelo B (1 rec.)</span>
+              <span class="info-val" id="ai-modelo-b">10 unidades</span>
+            </div>
+            <div class="info-row">
+              <span class="info-key" style="font-weight:500;color:var(--text)">Total</span>
+              <span class="info-val">28 unidades</span>
+            </div>
+          </div>
+
+          <!-- FLUJO DE EFECTIVO -->
+          <div class="info-group" style="margin-bottom:0">
+            <div class="info-group-title">Flujo de Efectivo</div>
+            <div class="info-row">
+              <span class="info-key">Enganches (preventa)</span>
+              <span class="info-val" style="color:var(--muted);font-weight:400">Fuerte inyección inicial</span>
+            </div>
+            <div class="info-row">
+              <span class="info-key">Mensualidades</span>
+              <span class="info-val" style="color:var(--muted);font-weight:400">21 meses de obra</span>
+            </div>
+            <div class="info-row">
+              <span class="info-key">Contra-entrega</span>
+              <span class="info-val" style="color:var(--muted);font-weight:400">Flujo masivo &mdash; ene 2027</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- ESTRATEGIA DE PRECIOS — full-width stairs -->
+        <div style="border-top:0.5px solid rgba(0,0,0,0.06);padding-top:14px">
+          <div class="info-group-title" style="margin-bottom:10px">Estrategia de Precios</div>
+          <div style="display:flex;gap:16px">
+            <div id="stair-modelo-a" style="flex:1"></div>
+            <div style="width:0.5px;background:rgba(0,0,0,0.06);align-self:stretch"></div>
+            <div id="stair-modelo-b" style="flex:1"></div>
+          </div>
+          <!-- Shared discount line -->
+          <div style="margin-top:8px;padding-top:8px;border-top:0.5px solid rgba(0,0,0,0.05);font-size:12px;color:var(--muted)">
+            Descuento presupuestado <strong style="color:var(--text)">$3.7M</strong>
+            &nbsp;&rarr;&nbsp; Real <strong style="color:var(--text)">$1.5M</strong>
+            &ensp;<span style="color:var(--green);font-weight:500">ahorro $2.2M</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Análisis de Egresos -->
+  <div class="card" style="margin-bottom:16px">
+    <div class="section-title">Análisis de Egresos</div>
+    <div id="egresos-container" style="width:100%;min-height:360px;display:flex;align-items:flex-start;overflow:hidden"></div>
+  </div>
+
+  <!-- Estructura de Financiamiento -->
+  <div class="card" style="margin-bottom:20px">
+    <div class="section-title">Estructura de Financiamiento</div>
+    <div style="display:flex;gap:0;align-items:flex-start">
+
+      <!-- Sección 1: Estructura de Capital -->
+      <div style="flex:0 0 290px">
+        <div class="info-group-title" style="margin-bottom:14px">Estructura de Capital</div>
+
+        <div style="border-left:3px solid #1D9E75;padding:10px 12px;background:rgba(29,158,117,0.05);border-radius:0 8px 8px 0;margin-bottom:4px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">
+            <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#1D9E75;flex-shrink:0"></span>
+            <span style="font-size:13px;font-weight:500;color:var(--text)">Preventas de clientes</span>
+          </div>
+          <div style="font-size:13px;font-weight:600;color:#1D9E75;margin-left:16px">$57.5M&ensp;<span style="font-weight:400;color:var(--muted);font-size:12px">68.3%</span></div>
+          <div style="font-size:11px;color:var(--label);margin-left:16px;margin-top:3px;line-height:1.4">Enganches + mensualidades · prueba de absorción</div>
+        </div>
+
+        <div style="text-align:center;color:var(--label);font-size:15px;padding:3px 0;line-height:1">↓</div>
+
+        <div style="border-left:3px solid #378ADD;padding:10px 12px;background:rgba(55,138,221,0.05);border-radius:0 8px 8px 0;margin-bottom:4px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">
+            <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#378ADD;flex-shrink:0"></span>
+            <span style="font-size:13px;font-weight:500;color:var(--text)">Aportación de tierra</span>
+          </div>
+          <div style="font-size:13px;font-weight:600;color:#378ADD;margin-left:16px">$10.9M&ensp;<span style="font-weight:400;color:var(--muted);font-size:12px">12.9%</span></div>
+          <div style="font-size:11px;color:var(--label);margin-left:16px;margin-top:3px;line-height:1.4">4 unidades de intercambio (D25&ndash;D28)</div>
+        </div>
+
+        <div style="text-align:center;color:var(--label);font-size:15px;padding:3px 0;line-height:1">↓</div>
+
+        <div style="border-left:3px solid #534AB7;padding:10px 12px;background:rgba(83,74,183,0.05);border-radius:0 8px 8px 0">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">
+            <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#534AB7;flex-shrink:0"></span>
+            <span style="font-size:13px;font-weight:500;color:var(--text)">Capital inversionista (puente)</span>
+          </div>
+          <div style="font-size:13px;font-weight:600;color:#534AB7;margin-left:16px">$17.1M&ensp;<span style="font-weight:400;color:var(--muted);font-size:12px">18.8%</span></div>
+          <div style="font-size:11px;color:var(--label);margin-left:16px;margin-top:3px;line-height:1.4">Cubre brecha en Hard Costs de obra</div>
+        </div>
+      </div>
+
+      <!-- Sección 2+3: Fases + Detalle Crédito (merged right column) -->
+      <div style="flex:1;padding-left:32px;border-left:0.5px solid rgba(0,0,0,0.06)">
+
+        <!-- Fases del Proyecto -->
+        <div class="info-group-title" style="margin-bottom:24px">Fases del Proyecto</div>
+        <div style="position:relative;padding-top:7px">
+          <div style="position:absolute;top:7px;left:7px;right:7px;height:2px;background:linear-gradient(to right,#1D9E75,#378ADD,#534AB7);border-radius:1px"></div>
+          <div style="display:flex;justify-content:space-between;align-items:flex-start">
+            <div style="flex:0 0 auto;max-width:160px">
+              <div style="width:16px;height:16px;border-radius:50%;background:#1D9E75;border:2.5px solid #fff;outline:2px solid #1D9E75;margin-bottom:14px"></div>
+              <div style="font-size:11px;font-weight:600;color:#1D9E75;text-transform:uppercase;letter-spacing:.6px;margin-bottom:2px">Pre-operativa</div>
+              <div style="font-size:10px;color:var(--label);margin-bottom:8px">Mayo 2025</div>
+              <div style="font-size:11px;color:var(--muted);line-height:1.55">Preventas agresivas Lista 0 · Capitalización inicial</div>
+            </div>
+            <div style="flex:1;text-align:center;padding:0 12px">
+              <div style="width:16px;height:16px;border-radius:50%;background:#378ADD;border:2.5px solid #fff;outline:2px solid #378ADD;margin:0 auto 14px"></div>
+              <div style="font-size:11px;font-weight:600;color:#378ADD;text-transform:uppercase;letter-spacing:.6px;margin-bottom:2px">Construcción</div>
+              <div style="font-size:10px;color:var(--label);margin-bottom:8px">Jun 2025 – Dic 2026 · 21 meses</div>
+              <div style="font-size:11px;color:var(--muted);line-height:1.55">Capital inversionista fondea draws de obra · Mensualidades cubren operación</div>
+            </div>
+            <div style="flex:0 0 auto;max-width:160px;text-align:right">
+              <div style="width:16px;height:16px;border-radius:50%;background:#534AB7;border:2.5px solid #fff;outline:2px solid #534AB7;margin:0 0 14px auto"></div>
+              <div style="font-size:11px;font-weight:600;color:#534AB7;text-transform:uppercase;letter-spacing:.6px;margin-bottom:2px">Cierre</div>
+              <div style="font-size:10px;color:var(--label);margin-bottom:8px">Ene 2027</div>
+              <div style="font-size:11px;color:var(--muted);line-height:1.55">Saldos contra-entrega · Liquidación inversionista · Utilidad neta 10%</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Divider -->
+        <div style="height:0.5px;background:rgba(0,0,0,0.08);margin:20px 0"></div>
+
+        <!-- Detalle Crédito de Inversionistas -->
+        <div class="info-group-title" style="margin-bottom:12px">Detalle Crédito de Inversionistas</div>
+
+        <!-- Condiciones: 2-column layout -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 32px;margin-bottom:16px">
+          <div>
+            <div class="info-row"><span class="info-key">Monto</span><span class="info-val">$17,050,000</span></div>
+            <div class="info-row"><span class="info-key">Tasa máxima</span><span class="info-val">18% anual · 1.5% mensual</span></div>
+            <div class="info-row"><span class="info-key">Liquidación</span><span class="info-val">enero 2027</span></div>
+          </div>
+          <div>
+            <div class="info-row"><span class="info-key">Inicio disposición</span><span class="info-val" id="inicio-disposicion">—</span></div>
+            <div class="info-row">
+              <span class="info-key">Total intereses</span>
+              <span class="info-val" style="color:var(--blue);font-weight:600">$2,448,750</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Chart 1: Financiamiento (disposiciones y devoluciones) -->
+        <div style="margin-bottom:12px">
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;color:var(--label);margin-bottom:6px">Disposiciones y devoluciones mensuales</div>
+          <div style="position:relative;height:90px">
+            <canvas id="credito-finan-chart"></canvas>
+          </div>
+        </div>
+
+        <!-- Chart 2: Intereses mensuales -->
+        <div style="margin-bottom:12px">
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;color:var(--label);margin-bottom:6px">Intereses mensuales</div>
+          <div style="position:relative;height:90px">
+            <canvas id="credito-chart"></canvas>
+          </div>
+        </div>
+
+        <!-- Summary line -->
+        <div style="font-size:11px;color:var(--muted);margin-bottom:10px;line-height:1.5">
+          Costo financiero total: <strong style="color:var(--text)">$2.4M</strong>
+          &nbsp;&middot;&nbsp; 2.9% sobre ventas
+          &nbsp;&middot;&nbsp; Eficiencia: <strong style="color:var(--text)">LTC 22.5%</strong>
+        </div>
+
+        <!-- Explanatory note -->
+        <div style="font-size:10px;color:var(--label);line-height:1.6;border-top:0.5px solid rgba(0,0,0,0.06);padding-top:10px">
+          La tasa del 18% anual se aplica únicamente sobre el saldo dispuesto. El capital del inversionista entra en los meses donde los anticipos de clientes no cubren las disposiciones de obra, optimizando el costo financiero total.
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Análisis de Flujo -->
+  <div class="card" style="margin-bottom:16px">
+    <div class="section-title">Análisis de Flujo</div>
+    <div class="chart-tabs">
+      <button class="tab-btn flujo-tab-btn active" onclick="switchFlujoTab('neto',this)">Flujo Neto</button>
+      <button class="tab-btn flujo-tab-btn" onclick="switchFlujoTab('netoFin',this)">Flujo Neto con Financiamiento</button>
+      <button class="tab-btn flujo-tab-btn" onclick="switchFlujoTab('acum',this)">Flujo Acumulado</button>
+    </div>
+    <div class="chart-wrap">
+      <canvas id="flujo-chart"></canvas>
+    </div>
+  </div>
+
+  <!-- Estatus Actual -->
+  <div class="card" style="margin-bottom:20px">
+
+    <!-- Header -->
+    <div style="display:flex;align-items:baseline;gap:12px;margin-bottom:20px">
+      <div class="section-title" style="margin-bottom:0">Estatus Actual</div>
+      <div style="font-size:11px;font-weight:500;color:var(--label);letter-spacing:.3px">Al 27 de marzo 2026</div>
+    </div>
+
+    <!-- KPI strip -->
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:24px">
+
+      <!-- Ingresos cobrados -->
+      <div style="background:var(--kpi-bg);border-radius:10px;padding:14px 16px">
+        <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--label);margin-bottom:6px">Ingresos cobrados</div>
+        <div style="font-size:20px;font-weight:700;color:var(--text);letter-spacing:-.5px;margin-bottom:4px">$25.0M</div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:8px">vs presupuesto $84.2M</div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <div style="flex:1;height:3px;background:rgba(0,0,0,0.08);border-radius:2px;overflow:hidden">
+            <div style="width:29.7%;height:100%;background:#185FA5;border-radius:2px"></div>
+          </div>
+          <span style="font-size:10px;font-weight:600;color:#185FA5;background:rgba(24,95,165,0.1);padding:2px 7px;border-radius:20px">29.7%</span>
+        </div>
+      </div>
+
+      <!-- Egresos pagados -->
+      <div style="background:var(--kpi-bg);border-radius:10px;padding:14px 16px">
+        <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--label);margin-bottom:6px">Egresos pagados</div>
+        <div style="font-size:20px;font-weight:700;color:var(--text);letter-spacing:-.5px;margin-bottom:4px">$13.2M</div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:8px">vs presupuesto $75.9M</div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <div style="flex:1;height:3px;background:rgba(0,0,0,0.08);border-radius:2px;overflow:hidden">
+            <div style="width:17.4%;height:100%;background:#534AB7;border-radius:2px"></div>
+          </div>
+          <span style="font-size:10px;font-weight:600;color:#534AB7;background:rgba(83,74,183,0.1);padding:2px 7px;border-radius:20px">17.4%</span>
+        </div>
+      </div>
+
+      <!-- Flujo real -->
+      <div style="background:var(--kpi-bg);border-radius:10px;padding:14px 16px">
+        <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--label);margin-bottom:6px">Flujo real acumulado</div>
+        <div style="font-size:20px;font-weight:700;color:#0F6E56;letter-spacing:-.5px;margin-bottom:4px">$11.8M</div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:8px">Ingresos − Egresos</div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <span style="font-size:10px;font-weight:600;color:#0F6E56;background:rgba(15,110,86,0.1);padding:2px 7px;border-radius:20px">Positivo</span>
+        </div>
+      </div>
+
+      <!-- Unidades activas -->
+      <div style="background:var(--kpi-bg);border-radius:10px;padding:14px 16px">
+        <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--label);margin-bottom:10px">Unidades con movimiento</div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <div>
+              <span style="font-size:13px;color:var(--text)">Vendidas</span>
+              <div style="font-size:10px;color:var(--label);margin-top:1px">D03, D13, D14, D17, D20, D23, D24, D25–D28</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;margin-left:8px">
+              <span style="font-size:15px;font-weight:700;color:var(--text)">11</span>
+              <span style="font-size:10px;font-weight:600;color:#0F6E56;background:rgba(15,110,86,0.1);padding:2px 7px;border-radius:20px">Verde</span>
+            </div>
+          </div>
+          <div style="height:0.5px;background:rgba(0,0,0,0.07)"></div>
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <span style="font-size:13px;color:var(--text)">Apartadas <span style="font-size:11px;color:var(--label)">(D10, D18)</span></span>
+            <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;margin-left:8px">
+              <span style="font-size:15px;font-weight:700;color:var(--text)">2</span>
+              <span style="font-size:10px;font-weight:600;color:#92610a;background:rgba(234,179,8,0.15);padding:2px 7px;border-radius:20px">Amarillo</span>
+            </div>
+          </div>
+          <div style="height:0.5px;background:rgba(0,0,0,0.07)"></div>
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <span style="font-size:13px;color:var(--text)">Disponibles</span>
+            <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;margin-left:8px">
+              <span style="font-size:15px;font-weight:700;color:var(--text)">15</span>
+              <span style="font-size:10px;font-weight:600;color:#6b6b68;background:rgba(0,0,0,0.07);padding:2px 7px;border-radius:20px">Gris</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Two-column tables -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+
+      <!-- Left: Ingresos por unidad -->
+      <div>
+        <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--label);margin-bottom:10px">Ingresos por unidad</div>
+        <table style="width:100%;border-collapse:collapse">
+          <thead>
+            <tr>
+              <th style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;color:var(--label);text-align:left;padding:0 8px 8px 0;border-bottom:0.5px solid rgba(0,0,0,0.08)">Unidad</th>
+              <th style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;color:var(--label);text-align:right;padding:0 8px 8px;border-bottom:0.5px solid rgba(0,0,0,0.08)">Cobrado</th>
+              <th style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;color:var(--label);text-align:right;padding:0 8px 8px;border-bottom:0.5px solid rgba(0,0,0,0.08)">Pendiente</th>
+              <th style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;color:var(--label);text-align:center;padding:0 0 8px 8px;border-bottom:0.5px solid rgba(0,0,0,0.08)">Estatus</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr style="border-bottom:0.5px solid rgba(0,0,0,0.05)">
+              <td style="padding:7px 8px 7px 0;font-size:12px;font-weight:600;color:var(--text)">D03</td>
+              <td style="padding:7px 8px;font-size:12px;color:var(--text);text-align:right">$697,875</td>
+              <td style="padding:7px 8px;font-size:12px;color:var(--muted);text-align:right">$2,206,125</td>
+              <td style="padding:7px 0 7px 8px;text-align:center"><span style="font-size:10px;font-weight:600;color:#92610a;background:rgba(234,179,8,0.15);padding:2px 8px;border-radius:20px;white-space:nowrap">Material</span></td>
+            </tr>
+            <tr style="border-bottom:0.5px solid rgba(0,0,0,0.05)">
+              <td style="padding:7px 8px 7px 0;font-size:12px;font-weight:600;color:var(--text)">D10</td>
+              <td style="padding:7px 8px;font-size:12px;color:var(--muted);text-align:right">—</td>
+              <td style="padding:7px 8px;font-size:12px;color:var(--muted);text-align:right">Por definir</td>
+              <td style="padding:7px 0 7px 8px;text-align:center"><span style="font-size:10px;font-weight:600;color:#6b6b68;background:rgba(0,0,0,0.07);padding:2px 8px;border-radius:20px;white-space:nowrap">Apartado</span></td>
+            </tr>
+            <tr style="border-bottom:0.5px solid rgba(0,0,0,0.05)">
+              <td style="padding:7px 8px 7px 0;font-size:12px;font-weight:600;color:var(--text)">D13</td>
+              <td style="padding:7px 8px;font-size:12px;color:var(--text);text-align:right">$2,288,880</td>
+              <td style="padding:7px 8px;font-size:12px;color:var(--muted);text-align:right">$254,320</td>
+              <td style="padding:7px 0 7px 8px;text-align:center"><span style="font-size:10px;font-weight:600;color:#9a3d0a;background:rgba(234,120,8,0.12);padding:2px 8px;border-radius:20px;white-space:nowrap">Parcial</span></td>
+            </tr>
+            <tr style="border-bottom:0.5px solid rgba(0,0,0,0.05)">
+              <td style="padding:7px 8px 7px 0;font-size:12px;font-weight:600;color:var(--text)">D14</td>
+              <td style="padding:7px 8px;font-size:12px;color:var(--text);text-align:right">$2,288,880</td>
+              <td style="padding:7px 8px;font-size:12px;color:var(--muted);text-align:right">$254,320</td>
+              <td style="padding:7px 0 7px 8px;text-align:center"><span style="font-size:10px;font-weight:600;color:#9a3d0a;background:rgba(234,120,8,0.12);padding:2px 8px;border-radius:20px;white-space:nowrap">Parcial</span></td>
+            </tr>
+            <tr style="border-bottom:0.5px solid rgba(0,0,0,0.05)">
+              <td style="padding:7px 8px 7px 0;font-size:12px;font-weight:600;color:var(--text)">D17</td>
+              <td style="padding:7px 8px;font-size:12px;color:var(--text);text-align:right">$2,624,400</td>
+              <td style="padding:7px 8px;font-size:12px;color:var(--muted);text-align:right">$291,600</td>
+              <td style="padding:7px 0 7px 8px;text-align:center"><span style="font-size:10px;font-weight:600;color:#9a3d0a;background:rgba(234,120,8,0.12);padding:2px 8px;border-radius:20px;white-space:nowrap">Parcial</span></td>
+            </tr>
+            <tr style="border-bottom:0.5px solid rgba(0,0,0,0.05)">
+              <td style="padding:7px 8px 7px 0;font-size:12px;font-weight:600;color:var(--text)">D18</td>
+              <td style="padding:7px 8px;font-size:12px;color:var(--muted);text-align:right">—</td>
+              <td style="padding:7px 8px;font-size:12px;color:var(--muted);text-align:right">Por definir</td>
+              <td style="padding:7px 0 7px 8px;text-align:center"><span style="font-size:10px;font-weight:600;color:#6b6b68;background:rgba(0,0,0,0.07);padding:2px 8px;border-radius:20px;white-space:nowrap">Apartado</span></td>
+            </tr>
+            <tr style="border-bottom:0.5px solid rgba(0,0,0,0.05)">
+              <td style="padding:7px 8px 7px 0;font-size:12px;font-weight:600;color:var(--text)">D20</td>
+              <td style="padding:7px 8px;font-size:12px;color:var(--text);text-align:right">$240,037</td>
+              <td style="padding:7px 8px;font-size:12px;color:var(--muted);text-align:right">$3,251,422</td>
+              <td style="padding:7px 0 7px 8px;text-align:center"><span style="font-size:10px;font-weight:600;color:#9a3d0a;background:rgba(234,120,8,0.12);padding:2px 8px;border-radius:20px;white-space:nowrap">Parcial</span></td>
+            </tr>
+            <tr style="border-bottom:0.5px solid rgba(0,0,0,0.05)">
+              <td style="padding:7px 8px 7px 0;font-size:12px;font-weight:600;color:var(--text)">D23</td>
+              <td style="padding:7px 8px;font-size:12px;color:var(--text);text-align:right">$3,000,000</td>
+              <td style="padding:7px 8px;font-size:12px;color:#0F6E56;text-align:right;font-weight:600">$0</td>
+              <td style="padding:7px 0 7px 8px;text-align:center"><span style="font-size:10px;font-weight:600;color:#0F6E56;background:rgba(15,110,86,0.12);padding:2px 8px;border-radius:20px;white-space:nowrap">Liquidado</span></td>
+            </tr>
+            <tr style="border-bottom:0.5px solid rgba(0,0,0,0.05)">
+              <td style="padding:7px 8px 7px 0;font-size:12px;font-weight:600;color:var(--text)">D24</td>
+              <td style="padding:7px 8px;font-size:12px;color:var(--text);text-align:right">$3,000,000</td>
+              <td style="padding:7px 8px;font-size:12px;color:#0F6E56;text-align:right;font-weight:600">$0</td>
+              <td style="padding:7px 0 7px 8px;text-align:center"><span style="font-size:10px;font-weight:600;color:#0F6E56;background:rgba(15,110,86,0.12);padding:2px 8px;border-radius:20px;white-space:nowrap">Liquidado</span></td>
+            </tr>
+            <tr>
+              <td style="padding:7px 8px 7px 0;font-size:12px;font-weight:600;color:var(--text)">D25–D28</td>
+              <td style="padding:7px 8px;font-size:12px;color:var(--text);text-align:right">$10,884,000</td>
+              <td style="padding:7px 8px;font-size:12px;color:#185FA5;text-align:right;font-weight:600">$0</td>
+              <td style="padding:7px 0 7px 8px;text-align:center"><span style="font-size:10px;font-weight:600;color:#185FA5;background:rgba(24,95,165,0.12);padding:2px 8px;border-radius:20px;white-space:nowrap">Intercambio</span></td>
+            </tr>
+            <!-- Total -->
+            <tr style="background:#f5f4f0">
+              <td style="padding:8px 8px 8px 0;font-size:12px;font-weight:700;color:var(--text);border-top:0.5px solid rgba(0,0,0,0.1)">Total</td>
+              <td style="padding:8px 8px;font-size:12px;font-weight:700;color:var(--text);text-align:right;border-top:0.5px solid rgba(0,0,0,0.1);font-variant-numeric:tabular-nums">$25,023,072</td>
+              <td style="padding:8px 8px;font-size:12px;font-weight:700;color:var(--muted);text-align:right;border-top:0.5px solid rgba(0,0,0,0.1);font-variant-numeric:tabular-nums">$8,257,787</td>
+              <td style="padding:8px 0 8px 8px;border-top:0.5px solid rgba(0,0,0,0.1);font-size:10px;color:var(--label);text-align:center">excl. por definir</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Right: Egresos reales vs presupuesto -->
+      <div>
+        <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--label);margin-bottom:10px">Egresos reales vs presupuesto</div>
+        <table style="width:100%;border-collapse:collapse">
+          <thead>
+            <tr>
+              <th style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;color:var(--label);text-align:left;padding:0 8px 8px 0;border-bottom:0.5px solid rgba(0,0,0,0.08)">Categoría</th>
+              <th style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;color:var(--label);text-align:right;padding:0 8px 8px;border-bottom:0.5px solid rgba(0,0,0,0.08)">Ejercido</th>
+              <th style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;color:var(--label);text-align:right;padding:0 8px 8px;border-bottom:0.5px solid rgba(0,0,0,0.08)">Presupuesto</th>
+              <th style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;color:var(--label);text-align:left;padding:0 0 8px 8px;border-bottom:0.5px solid rgba(0,0,0,0.08);min-width:80px">Avance</th>
+            </tr>
+          </thead>
+          <tbody>
+            <!-- Land costs -->
+            <tr style="border-bottom:0.5px solid rgba(0,0,0,0.05)">
+              <td style="padding:7px 8px 7px 0">
+                <div style="display:flex;align-items:center;gap:6px">
+                  <span style="display:inline-block;width:7px;height:7px;border-radius:2px;background:#378ADD;flex-shrink:0"></span>
+                  <span style="font-size:12px;color:var(--text)">Land costs</span>
+                </div>
+              </td>
+              <td style="padding:7px 8px;font-size:12px;color:var(--text);text-align:right;font-variant-numeric:tabular-nums">$822,017</td>
+              <td style="padding:7px 8px;font-size:12px;color:var(--muted);text-align:right;font-variant-numeric:tabular-nums">$10,884,000</td>
+              <td style="padding:7px 0 7px 8px">
+                <div style="display:flex;align-items:center;gap:5px">
+                  <div style="flex:1;height:4px;background:rgba(0,0,0,0.07);border-radius:2px;overflow:hidden">
+                    <div style="width:7.6%;height:100%;background:#378ADD;border-radius:2px"></div>
+                  </div>
+                  <span style="font-size:10px;color:var(--muted);min-width:32px;text-align:right">7.6%</span>
+                </div>
+              </td>
+            </tr>
+            <!-- Hard costs -->
+            <tr style="border-bottom:0.5px solid rgba(0,0,0,0.05)">
+              <td style="padding:7px 8px 7px 0">
+                <div style="display:flex;align-items:center;gap:6px">
+                  <span style="display:inline-block;width:7px;height:7px;border-radius:2px;background:#534AB7;flex-shrink:0"></span>
+                  <span style="font-size:12px;color:var(--text)">Hard costs</span>
+                </div>
+              </td>
+              <td style="padding:7px 8px;font-size:12px;color:var(--text);text-align:right;font-variant-numeric:tabular-nums">$6,871,596</td>
+              <td style="padding:7px 8px;font-size:12px;color:var(--muted);text-align:right;font-variant-numeric:tabular-nums">$48,284,776</td>
+              <td style="padding:7px 0 7px 8px">
+                <div style="display:flex;align-items:center;gap:5px">
+                  <div style="flex:1;height:4px;background:rgba(0,0,0,0.07);border-radius:2px;overflow:hidden">
+                    <div style="width:14.2%;height:100%;background:#534AB7;border-radius:2px"></div>
+                  </div>
+                  <span style="font-size:10px;color:var(--muted);min-width:32px;text-align:right">14.2%</span>
+                </div>
+              </td>
+            </tr>
+            <!-- Soft costs -->
+            <tr style="border-bottom:0.5px solid rgba(0,0,0,0.05)">
+              <td style="padding:7px 8px 7px 0">
+                <div style="display:flex;align-items:center;gap:6px">
+                  <span style="display:inline-block;width:7px;height:7px;border-radius:2px;background:#1D9E75;flex-shrink:0"></span>
+                  <span style="font-size:12px;color:var(--text)">Soft costs</span>
+                </div>
+              </td>
+              <td style="padding:7px 8px;font-size:12px;color:var(--text);text-align:right;font-variant-numeric:tabular-nums">$4,983,924</td>
+              <td style="padding:7px 8px;font-size:12px;color:var(--muted);text-align:right;font-variant-numeric:tabular-nums">$13,639,822</td>
+              <td style="padding:7px 0 7px 8px">
+                <div style="display:flex;align-items:center;gap:5px">
+                  <div style="flex:1;height:4px;background:rgba(0,0,0,0.07);border-radius:2px;overflow:hidden">
+                    <div style="width:36.5%;height:100%;background:#1D9E75;border-radius:2px"></div>
+                  </div>
+                  <span style="font-size:10px;color:var(--muted);min-width:32px;text-align:right">36.5%</span>
+                </div>
+              </td>
+            </tr>
+            <!-- Gastos operación -->
+            <tr style="border-bottom:0.5px solid rgba(0,0,0,0.05)">
+              <td style="padding:7px 8px 7px 0">
+                <div style="display:flex;align-items:center;gap:6px">
+                  <span style="display:inline-block;width:7px;height:7px;border-radius:2px;background:#E2844A;flex-shrink:0"></span>
+                  <span style="font-size:12px;color:var(--text)">Gastos operación</span>
+                </div>
+              </td>
+              <td style="padding:7px 8px;font-size:12px;color:var(--text);text-align:right;font-variant-numeric:tabular-nums">$393,457</td>
+              <td style="padding:7px 8px;font-size:12px;color:var(--muted);text-align:right;font-variant-numeric:tabular-nums">$669,565</td>
+              <td style="padding:7px 0 7px 8px">
+                <div style="display:flex;align-items:center;gap:5px">
+                  <div style="flex:1;height:4px;background:rgba(0,0,0,0.07);border-radius:2px;overflow:hidden">
+                    <div style="width:58.8%;height:100%;background:#E2844A;border-radius:2px"></div>
+                  </div>
+                  <span style="font-size:10px;color:var(--muted);min-width:32px;text-align:right">58.8%</span>
+                </div>
+              </td>
+            </tr>
+            <!-- Costos financiamiento -->
+            <tr style="border-bottom:0.5px solid rgba(0,0,0,0.08)">
+              <td style="padding:7px 8px 7px 0">
+                <div style="display:flex;align-items:center;gap:6px">
+                  <span style="display:inline-block;width:7px;height:7px;border-radius:2px;background:#888780;flex-shrink:0"></span>
+                  <span style="font-size:12px;color:var(--text)">Costos financiamiento</span>
+                </div>
+              </td>
+              <td style="padding:7px 8px;font-size:12px;color:var(--text);text-align:right;font-variant-numeric:tabular-nums">$170,950</td>
+              <td style="padding:7px 8px;font-size:12px;color:var(--muted);text-align:right;font-variant-numeric:tabular-nums">$2,448,750</td>
+              <td style="padding:7px 0 7px 8px">
+                <div style="display:flex;align-items:center;gap:5px">
+                  <div style="flex:1;height:4px;background:rgba(0,0,0,0.07);border-radius:2px;overflow:hidden">
+                    <div style="width:7.0%;height:100%;background:#888780;border-radius:2px"></div>
+                  </div>
+                  <span style="font-size:10px;color:var(--muted);min-width:32px;text-align:right">7.0%</span>
+                </div>
+              </td>
+            </tr>
+            <!-- Total -->
+            <tr style="background:rgba(0,0,0,0.025)">
+              <td style="padding:8px 8px 8px 0">
+                <span style="font-size:12px;font-weight:700;color:var(--text)">Total</span>
+              </td>
+              <td style="padding:8px 8px;font-size:12px;font-weight:700;color:var(--text);text-align:right;font-variant-numeric:tabular-nums">$13,241,944</td>
+              <td style="padding:8px 8px;font-size:12px;font-weight:700;color:var(--muted);text-align:right;font-variant-numeric:tabular-nums">$75,926,913</td>
+              <td style="padding:8px 0 8px 8px">
+                <div style="display:flex;align-items:center;gap:5px">
+                  <div style="flex:1;height:4px;background:rgba(0,0,0,0.07);border-radius:2px;overflow:hidden">
+                    <div style="width:17.4%;height:100%;background:var(--text);border-radius:2px"></div>
+                  </div>
+                  <span style="font-size:10px;font-weight:700;color:var(--text);min-width:32px;text-align:right">17.4%</span>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Raw CSV tables -->
+  <div class="card" style="margin-bottom:16px">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <span style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--label)">Datos fuente</span>
+      <button class="csv-toggle" onclick="toggleCsvTables()">Mostrar tablas</button>
+    </div>
+    <div id="csv-tables-wrap" class="csv-table-wrap">
+      <div id="csv-tables-content"></div>
+    </div>
+  </div>
+
+</div>
+
+<footer>
+  Taureno Dashboard &nbsp;&middot;&nbsp; Google Sheets &nbsp;&middot;&nbsp; <span id="footer-time">—</span>
+</footer>
+
+<script>
+/* ══════════════════════════════════════
+   CONFIG
+══════════════════════════════════════ */
+const SHEETS = {
+  cf:       'https://docs.google.com/spreadsheets/d/e/2PACX-1vQQGPiLdRINodmzgKP5KQFqc83MVqiZwrhHVi8IDu-qBjVqahRYXGFHI6959OrcmSoHIchnETv5QbkX/pub?gid=1273988278&single=true&output=csv',
+  resumen:  'https://docs.google.com/spreadsheets/d/e/2PACX-1vQQGPiLdRINodmzgKP5KQFqc83MVqiZwrhHVi8IDu-qBjVqahRYXGFHI6959OrcmSoHIchnETv5QbkX/pub?gid=2090041747&single=true&output=csv',
+  egresos:  'https://docs.google.com/spreadsheets/d/e/2PACX-1vQQGPiLdRINodmzgKP5KQFqc83MVqiZwrhHVi8IDu-qBjVqahRYXGFHI6959OrcmSoHIchnETv5QbkX/pub?gid=1449228872&single=true&output=csv',
+  ingresos: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQQGPiLdRINodmzgKP5KQFqc83MVqiZwrhHVi8IDu-qBjVqahRYXGFHI6959OrcmSoHIchnETv5QbkX/pub?gid=1882534020&single=true&output=csv',
+};
+
+const KPI_DEFAULTS = { ingresos: 84.2, utilOp: 10.7, utilBT: 8.3, vpn: 7.9, pe: 25.2, precio: 3.0 };
+
+let chartData = {};
+let flujoChart       = null;
+let creditoChart     = null;
+let creditoFinanChart = null;
+let currentFlujoTab = 'neto';
+
+/* ══════════════════════════════════════
+   UTILITIES
+══════════════════════════════════════ */
+function parseCSV(text) {
+  const rows = [];
+  for (const line of text.replace(/\r\n/g,'\n').replace(/\r/g,'\n').split('\n')) {
+    if (!line.trim()) continue;
+    const row = []; let cur = '', inQ = false;
+    for (const ch of line) {
+      if (ch === '"') { inQ = !inQ; }
+      else if (ch === ',' && !inQ) { row.push(cur.trim()); cur = ''; }
+      else { cur += ch; }
+    }
+    row.push(cur.trim());
+    rows.push(row);
+  }
+  return rows;
+}
+
+function parseNum(str) {
+  if (str == null) return NaN;
+  const s = String(str).trim();
+  if (!s || s === '-' || s === '—') return NaN;
+  const neg = s.startsWith('(') && s.endsWith(')');
+  const n = parseFloat(s.replace(/[()$,%\s]/g,'').replace(/,/g,''));
+  return isNaN(n) ? NaN : (neg ? -n : n);
+}
+
+function isNum(v) { return !isNaN(parseNum(v)); }
+
+function fmtPesos(n) {
+  if (isNaN(n)||n==null) return '—';
+  return '$' + Math.abs(n).toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:0});
+}
+
+function fmtM(n) {
+  if (isNaN(n)||n==null) return '—';
+  return '$' + (n/1e6).toFixed(1) + 'M';
+}
+
+function fmtCompact(n) {
+  if (isNaN(n)||n==null) return '—';
+  if (Math.abs(n) >= 1e6) return '$' + (n/1e6).toFixed(1).replace(/\.0$/, '') + 'M';
+  if (Math.abs(n) >= 1e3) return '$' + (n/1e3).toFixed(1).replace(/\.0$/, '') + 'K';
+  return '$' + Math.round(n);
+}
+
+function fmtPct(n, total) {
+  if (isNaN(n)||!total) return '—';
+  return (Math.abs(n)/total*100).toFixed(1) + '%';
+}
+
+// Normalize text for matching (strip accents, lowercase)
+function norm(s) {
+  return String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
+}
+
+// Find first row where col-0 matches any keyword
+function findRow(rows, ...keywords) {
+  return rows.find(r => {
+    const l = norm(r[0]);
+    return keywords.some(k => l.includes(norm(k)));
+  });
+}
+
+/* ══════════════════════════════════════
+   FETCH
+══════════════════════════════════════ */
+async function fetchSheet(url) {
+  const r = await fetch(`/api/sheet?url=${encodeURIComponent(url)}`);
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  return r.text();
+}
+
+/* ══════════════════════════════════════
+   PROCESS: RESUMEN
+   Layout: col1=label col2=value (info)
+           col4=label col5=$ col6=% (P&L)
+══════════════════════════════════════ */
+function processResumen(rows) {
+  if (!rows.length) return;
+
+  function findCol(col, ...keywords) {
+    return rows.find(r => {
+      const l = norm(r[col] || '');
+      return keywords.some(k => l.includes(norm(k)));
+    });
+  }
+  function findColWithNum(col, valCol, ...keywords) {
+    return rows.find(r => {
+      const l = norm(r[col] || '');
+      const hasKey = keywords.some(k => l.includes(norm(k)));
+      return hasKey && !isNaN(parseNum(r[valCol]));
+    });
+  }
+  function colNum(row, col) {
+    if (!row) return NaN;
+    const n = parseNum(row[col]);
+    return isNaN(n) ? NaN : n;
+  }
+  function colNum56(row) {
+    if (!row) return NaN;
+    const n5 = parseNum(row[5]);
+    return !isNaN(n5) ? n5 : parseNum(row[6]);
+  }
+
+  // ── P&L rows from right panel (col 4) ──
+  const ventasRow  = findCol(4, 'ventas');
+  const landRow    = findCol(4, 'land cost');
+  const hardRow    = findCol(4, 'hard cost');
+  const softRow    = findCol(4, 'soft cost');
+  const gasOpRow   = findCol(4, 'gastos de operacion');
+  const utilOpRow  = findCol(4, 'utilidad de operacion');
+  const cosFinRow  = findCol(4, 'costos de financiamiento');
+  const utilBTRow  = findCol(4, 'utilidad antes de impuesto');
+  const vpnRow     = findColWithNum(4, 6, 'vpn', 'valor presente');
+  const peRow      = findColWithNum(4, 6, 'punto de equilibrio');
+  const precioRow  = findColWithNum(4, 6, 'unidad promedio');
+  const loanToCostRow =
+    findColWithNum(4, 6, 'loan to cost') ||
+    findColWithNum(4, 5, 'loan to cost') ||
+    rows.find(r => norm(r[1]||'').includes('loan') && norm(r[1]||'').includes('cost'));
+
+  // ── Update KPI cards ────────────────
+  const ingV  = colNum(ventasRow,  5);
+  const uopV  = colNum(utilOpRow,  5);
+  const ubtV  = colNum(utilBTRow,  5);
+  const vpnV  = colNum(vpnRow,     6);
+  const peV   = colNum(peRow,      6);
+  const precV = colNum(precioRow,  6);
+  const totIng = isNaN(ingV) ? KPI_DEFAULTS.ingresos * 1e6 : ingV;
+
+  if (!isNaN(ingV)) document.getElementById('kpi-ingresos').textContent = fmtM(ingV);
+  if (!isNaN(uopV)) {
+    document.getElementById('kpi-utiop').textContent     = fmtM(uopV);
+    document.getElementById('kpi-utiop-pct').textContent = fmtPct(uopV, totIng) + ' del ingreso';
+  }
+  if (!isNaN(ubtV)) {
+    document.getElementById('kpi-utibt').textContent     = fmtM(ubtV);
+    document.getElementById('kpi-utibt-pct').textContent = fmtPct(ubtV, totIng) + ' del ingreso';
+  }
+  if (!isNaN(vpnV))  document.getElementById('kpi-vpn').textContent = fmtM(vpnV);
+  if (!isNaN(peV))   document.getElementById('kpi-pe').textContent  = peV.toFixed(2) + ' uds';
+  if (!isNaN(precV)) document.getElementById('kpi-precio').textContent = fmtM(precV);
+
+  // ── Build P&L (no indicators section) ──
+  function pnlVal(row) { return colNum56(row); }
+  function pnlPct(row) {
+    const raw = (row && row[6] || '').trim();
+    return raw || '—';
+  }
+
+  // Store gasOp / cosFin values so processEgresos can add them to the donut
+  chartData._egresosExtra = {
+    gasOp:  { label: (gasOpRow  && gasOpRow[4])  || 'Gastos de operación',      val: Math.abs(pnlVal(gasOpRow))  },
+    cosFin: { label: (cosFinRow && cosFinRow[4]) || 'Costos de financiamiento', val: Math.abs(pnlVal(cosFinRow)) },
+  };
+
+  const pnlRows = [
+    { section: 'Ingresos' },
+    { label: 'Ventas',                       val:  pnlVal(ventasRow),  pct: pnlPct(ventasRow),  cls: 'row-total' },
+    { section: 'Egresos' },
+    { label: (landRow  && landRow[4])  || 'Land costs',    val: -Math.abs(pnlVal(landRow)),   pct: pnlPct(landRow),   indent: true },
+    { label: (hardRow  && hardRow[4])  || 'Hard costs',    val: -Math.abs(pnlVal(hardRow)),   pct: pnlPct(hardRow),   indent: true },
+    { label: (softRow  && softRow[4])  || 'Soft costs',    val: -Math.abs(pnlVal(softRow)),   pct: pnlPct(softRow),   indent: true },
+    { label: (gasOpRow && gasOpRow[4]) || 'Gastos de operación', val: -Math.abs(pnlVal(gasOpRow)), pct: pnlPct(gasOpRow), indent: true },
+    { label: 'Utilidad de Operación',         val:  pnlVal(utilOpRow),  pct: pnlPct(utilOpRow),  cls: 'row-total' },
+    { label: (cosFinRow && cosFinRow[4]) || 'Costos de financiamiento', val: -Math.abs(pnlVal(cosFinRow)), pct: pnlPct(cosFinRow), indent: true },
+    { label: 'Utilidad antes de Impuestos',   val:  pnlVal(utilBTRow),  pct: pnlPct(utilBTRow),  cls: 'row-total' },
+  ];
+
+  document.getElementById('pnl-body').innerHTML = pnlRows.map(r => {
+    if (r.section) return `<tr class="row-section"><td colspan="3">${r.section}</td></tr>`;
+    const rowCls    = r.cls || '';
+    const indentCls = r.indent ? 'indent' : '';
+    let valCell, pctCell;
+    if (r.raw != null) {
+      valCell = `<span style="color:var(--muted)">${r.raw}</span>`;
+      pctCell = '—';
+    } else {
+      const v = r.val;
+      if (isNaN(v)) { valCell = '—'; pctCell = '—'; }
+      else {
+        const c = r.colorClass || (v >= 0 ? 'num-pos' : 'num-neg');
+        valCell = `<span class="${c}">${v < 0 ? '(' + fmtPesos(-v) + ')' : fmtPesos(v)}</span>`;
+        pctCell = r.pct !== undefined ? `<span class="${c}">${r.pct}</span>` : '—';
+      }
+    }
+    return `<tr class="${rowCls}"><td class="${indentCls}">${r.label}</td><td>${valCell}</td><td>${pctCell}</td></tr>`;
+  }).join('');
+
+  // ── Indicadores card ──
+  let loanRaw = null;
+  if (loanToCostRow) {
+    for (const ci of [6, 5, 2, 7]) {
+      const v = (loanToCostRow[ci]||'').trim();
+      if (v && !isNaN(parseNum(v))) { loanRaw = v; break; }
+    }
+  }
+  const indRows = [
+    { label: 'VPN del Proyecto',        val: vpnV,  colorClass: 'num-blue', fmt: v => fmtM(v) },
+    { label: 'Punto de Equilibrio',     raw: isNaN(peV) ? '—' : peV.toFixed(2) + ' unidades' },
+    { label: 'Precio Prom. por Unidad', raw: isNaN(precV) ? '—' : fmtPesos(precV) },
+    { label: 'Loan to Cost',            raw: loanRaw || '—' },
+  ];
+
+  document.getElementById('indicators-body').innerHTML = indRows.map(r => {
+    let valStr;
+    if (r.raw != null) {
+      valStr = `<span style="color:var(--muted)">${r.raw}</span>`;
+    } else if (!isNaN(r.val)) {
+      const c = r.colorClass || 'num-pos';
+      valStr = `<span class="${c}">${r.fmt ? r.fmt(r.val) : fmtM(r.val)}</span>`;
+    } else {
+      valStr = '—';
+    }
+    return `<div class="info-row"><span class="info-key">${r.label}</span><span class="info-val">${valStr}</span></div>`;
+  }).join('');
+
+  extractProjectInfo(rows);
+}
+
+/* ══════════════════════════════════════
+   EXTRACT PROJECT INFO
+   Keys in col 1, values in col 2
+══════════════════════════════════════ */
+function extractProjectInfo(rows) {
+  function findCol1(...keywords) {
+    return rows.find(r => {
+      const l = norm(r[1] || '');
+      return keywords.some(k => l.includes(norm(k)));
+    });
+  }
+
+  const fieldMap = {
+    'pi-terreno':      findCol1('terreno'),
+    'pi-construccion': findCol1('m² de construcción', 'm2 de construccion', 'metros de construccion'),
+    'pi-vendibles':    findCol1('m² vendibles', 'm2 vendibles', 'vendibles'),
+    'pi-unidades':     findCol1('número de unidades', 'numero de unidades'),
+    'pi-eficiencia':   findCol1('eficiencia del edificio', 'eficiencia'),
+    'pi-area-prom':    findCol1('superficie promedio por unidad', 'superficie promedio'),
+    'pi-inicio':       findCol1('fecha de inicio del proyecto'),
+    'pi-entrega':      findCol1('fecha de terminación de obra', 'fecha de terminacion de obra'),
+    'pi-duracion':     findCol1('duración total del proyecto', 'duracion total del proyecto'),
+    'pi-capital':      rows.find(r => norm(r[1]) === 'capital'),
+    'pi-anticipos':    findCol1('anticipos de clientes', 'anticipos de cliente'),
+    'pi-deuda-sin':    findCol1('deuda sin reserva de intereses'),
+    'pi-deuda-con':    findCol1('deuda + reserva de interés', 'deuda + reserva de interes'),
+  };
+
+  const COMPACT_FIELDS = new Set(['pi-capital','pi-anticipos','pi-deuda-sin','pi-deuda-con']);
+
+  for (const [id, row] of Object.entries(fieldMap)) {
+    if (!row) continue;
+    const rawVal = (row[2] || '').trim();
+    const el = document.getElementById(id);
+    if (!el) continue;
+    if (COMPACT_FIELDS.has(id)) {
+      const n = parseNum(rawVal);
+      if (!isNaN(n)) { el.textContent = fmtCompact(n); }
+      else if (rawVal && rawVal !== '0') { el.textContent = rawVal; }
+    } else {
+      if (rawVal && rawVal !== '0') el.textContent = rawVal;
+    }
+  }
+}
+
+/* ══════════════════════════════════════
+   PROCESS: CF (P)
+   Extracts three flujo series for chart tabs
+══════════════════════════════════════ */
+function processCF(rows) {
+  const MONTH_PAT = /^(ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic|mes\s*\d+|\d{1,2}\/\d{2,4}|\d{4}-\d{2})/i;
+  let headerIdx = -1, labels = [], dataStart = 1;
+
+  for (let i = 0; i < Math.min(rows.length, 20); i++) {
+    const mCols = rows[i].reduce((a, c, j) => { if (MONTH_PAT.test(String(c).trim())) a.push(j); return a; }, []);
+    if (mCols.length >= 3) {
+      headerIdx = i;
+      labels = mCols.map(j => rows[i][j]);
+      dataStart = mCols[0];
+      break;
+    }
+  }
+
+  const dRows = headerIdx >= 0 ? rows.slice(headerIdx + 1) : rows;
+  const nCols = labels.length || 15;
+  const extract = row => row ? row.slice(dataStart, dataStart + nCols).map(v => { const n = parseNum(v); return isNaN(n) ? 0 : n; }) : null;
+
+  // Find the three specific flujo rows by col 0 label
+  const netoRow    = dRows.find(r => { const l = norm(r[0]||''); return l.includes('flujo') && l.includes('neto') && !l.includes('financiamiento') && !l.includes('acumulado'); });
+  const netoFinRow = dRows.find(r => { const l = norm(r[0]||''); return l.includes('flujo') && l.includes('neto') && l.includes('financiamiento'); });
+  const acumRow    = dRows.find(r => { const l = norm(r[0]||''); return l.includes('flujo') && l.includes('acumulado') && !l.includes('financiamiento'); });
+  const interesRow  = dRows.find(r => { const l = norm(r[0]||''); return l.includes('interes') && l.includes('comis'); });
+  const financRow   = dRows.find(r => { const l = norm(r[0]||''); return l === 'financiamiento' || (l.startsWith('financiamiento') && !l.includes('costo') && !l.includes('flujo') && !l.includes('total')); });
+
+  // Precio Promedio: Total ingresos / 28 unidades
+  const totalIngRow = dRows.find(r => { const l = norm(r[0]||''); return l.includes('total') && l.includes('ingreso') && !l.includes('acumulado'); });
+  if (totalIngRow) {
+    // Try a "Totales" column in the header row first, then sum all months
+    const hRow = rows[headerIdx] || [];
+    const totColIdx = hRow.findIndex((v, j) => j >= dataStart + labels.length && norm(v||'').includes('total'));
+    let totalIngV = totColIdx > 0 ? parseNum(totalIngRow[totColIdx]) : NaN;
+    if (isNaN(totalIngV)) {
+      const monthVals = extract(totalIngRow);
+      if (monthVals) totalIngV = monthVals.reduce((a, b) => a + b, 0);
+    }
+    if (!isNaN(totalIngV) && totalIngV > 0) {
+      document.getElementById('kpi-precio').textContent = fmtM(totalIngV / 28);
+    }
+  }
+
+  // Default fallback data
+  const defLabels = ['May-25','Jun-25','Jul-25','Ago-25','Sep-25','Oct-25','Nov-25','Dic-25','Ene-26','Feb-26','Mar-26','Abr-26','May-26','Jun-26','Jul-26'];
+  const defNeto   = [0,0,0,2.5,4.2,6.8,8.4,9.2,10.5,11.8,12.6,9.8,8.4,0,0].map(v=>v*1e6);
+  const defNetoFin= [0,-2.5,-2.5,0,1.2,4.8,6.4,7.9,9.5,11.8,12.6,9.8,8.4,2.5,5.0].map(v=>v*1e6);
+  let s=0; const defAcum = defNeto.map(v=>{s+=v;return s;});
+
+  const netoData    = extract(netoRow);
+  const netoFinData = extract(netoFinRow);
+  const acumData    = extract(acumRow);
+
+  chartData.flujo = {
+    labels:  labels.length ? labels : defLabels,
+    neto:    (netoData    && netoData.some(v=>v!==0))    ? netoData    : defNeto,
+    netoFin: (netoFinData && netoFinData.some(v=>v!==0)) ? netoFinData : defNetoFin,
+    acum:    (acumData    && acumData.some(v=>v!==0))    ? acumData    : defAcum,
+  };
+
+  // Intereses y comisiones — only months with values > 0
+  if (interesRow) {
+    const allLabels = labels.length ? labels : defLabels;
+    const interesData = extract(interesRow) || [];
+    const iLabels = [], iValues = [];
+    interesData.forEach((v, i) => {
+      if (v > 0) { iLabels.push(allLabels[i] || `Mes ${i+1}`); iValues.push(v); }
+    });
+    if (iValues.length) chartData.intereses = { labels: iLabels, values: iValues };
+  }
+
+  // Financiamiento — all non-zero months (positive = disposición, negative = pago)
+  if (financRow) {
+    const allLabels = labels.length ? labels : defLabels;
+    const financData = extract(financRow) || [];
+    const fLabels = [], fValues = [];
+    financData.forEach((v, i) => {
+      if (v !== 0) { fLabels.push(allLabels[i] || `Mes ${i+1}`); fValues.push(v); }
+    });
+    const firstDisp = financData.findIndex(v => v > 0);
+    if (fLabels.length) {
+      chartData.financiamiento = {
+        labels: fLabels,
+        values: fValues,
+        firstMonth: firstDisp >= 0 ? (labels[firstDisp] || defLabels[firstDisp] || `Mes ${firstDisp+1}`) : null
+      };
+    }
+  }
+}
+
+/* ══════════════════════════════════════
+   PROCESS: EGRESOS (P)
+   Sheet: col1=ID, col2=category, col3=amount
+   Top-level (Land/Hard/Soft) + extras from Resumen
+══════════════════════════════════════ */
+function processEgresos(rows) {
+  const CATS = [
+    { key: 'land cost', label: 'Land costs', color: '#378ADD' },
+    { key: 'hard cost', label: 'Hard costs', color: '#534AB7' },
+    { key: 'soft cost', label: 'Soft costs', color: '#1D9E75' },
+  ];
+  const result = CATS.map(c => {
+    const row = rows.find(r => norm(r[2]||'').includes(norm(c.key)));
+    return { label: c.label, color: c.color, total: row ? Math.abs(parseNum(row[3])) : NaN };
+  });
+
+  const extra = chartData._egresosExtra;
+  if (extra) {
+    if (!isNaN(extra.gasOp.val)  && extra.gasOp.val  > 0) result.push({ label: extra.gasOp.label,  color: '#BA7517', total: extra.gasOp.val  });
+    if (!isNaN(extra.cosFin.val) && extra.cosFin.val > 0) result.push({ label: extra.cosFin.label, color: '#E24B4A', total: extra.cosFin.val });
+  }
+
+  const valid = result.filter(r => !isNaN(r.total));
+  const fallback = [
+    { label: 'Land costs',               color: '#378ADD', total: 10.88e6 },
+    { label: 'Hard costs',               color: '#534AB7', total: 48.28e6 },
+    { label: 'Soft costs',               color: '#1D9E75', total: 13.11e6 },
+    { label: 'Gastos de operación',      color: '#BA7517', total: 0.67e6  },
+    { label: 'Costos de financiamiento', color: '#E24B4A', total: 2.45e6  },
+  ];
+  const src = valid.length >= 3 ? valid : fallback;
+  chartData.egresos = {
+    labels: src.map(r => r.label),
+    totals: src.map(r => r.total),
+    colors: src.map(r => r.color),
+  };
+
+  // All line items from the sheet, tagged with group color and isTotal flag
+  const GROUP_KEYS = [
+    { key: 'land cost',                color: '#378ADD' },
+    { key: 'hard cost',                color: '#534AB7' },
+    { key: 'soft cost',                color: '#1D9E75' },
+    { key: 'gastos de operacion',      color: '#BA7517' },
+    { key: 'costos de financiamiento', color: '#E24B4A' },
+  ];
+  let currentGroupColor = '#888780';
+  chartData.egresosLines = rows
+    .filter(r => {
+      const cat = (r[2]||'').trim();
+      const amt = parseNum(r[3]);
+      return cat && !isNaN(amt) && Math.abs(amt) > 0;
+    })
+    .map(r => {
+      const cat = r[2].trim();
+      const amt = Math.abs(parseNum(r[3]));
+      const matched = GROUP_KEYS.find(g => norm(cat).includes(norm(g.key)));
+      if (matched) { currentGroupColor = matched.color; return { cat, amt, groupColor: matched.color, isTotal: true }; }
+      return { cat, amt, groupColor: currentGroupColor, isTotal: false };
+    });
+}
+
+/* ══════════════════════════════════════
+   PROCESS: INGRESOS (P)
+   Updates kpi-precio with real unit average
+══════════════════════════════════════ */
+function processIngresos(rows) {
+  const COLOR = { 'A': '#378ADD', 'B': '#1D9E75' };
+  const units = [];
+
+  for (const row of rows) {
+    const unitId = (row[10] || '').trim();
+    if (!/^D\d+$/.test(unitId)) continue;
+    const modelo = (row[2] || '').trim().toUpperCase();
+    const price  = parseNum(row[19]);
+    if (isNaN(price) || price <= 0) continue;
+    units.push({ id: unitId, modelo, price, color: COLOR[modelo] || '#888780' });
+  }
+
+  // kpi-precio is set in processCF (Total ingresos / 28 units)
+}
+
+/* ══════════════════════════════════════
+   CHARTS
+══════════════════════════════════════ */
+const P = {
+  green:     '#0F6E56',
+  greenFill: 'rgba(15,110,86,.10)',
+  blue:      '#185FA5',
+  blueFill:  'rgba(24,95,165,.10)',
+  gray:      '#888780',
+  red:       '#a32d2d',
+};
+
+function fmtAx(v) {
+  if (Math.abs(v) >= 1e6) return '$'+(v/1e6).toFixed(1)+'M';
+  if (Math.abs(v) >= 1e3) return '$'+(v/1e3).toFixed(0)+'K';
+  return '$'+v;
+}
+
+const baseOpts = {
+  responsive: true, maintainAspectRatio: false,
+  interaction: { mode:'index', intersect:false },
+  plugins: { legend: { position:'top', labels:{ boxWidth:10, font:{size:12}, padding:16 } } },
+};
+
+function makePriceStairSVG(prices, color, modelLabel) {
+  const n = prices.length;
+  const W = 260, H = 160;
+  const pL = 8, pR = 8, pT = 30, pB = 26;
+  const cW = W - pL - pR, cH = H - pT - pB;
+  const sw = cW / n;
+
+  const minP = Math.min(...prices) * 0.97;
+  const maxP = Math.max(...prices) * 1.02;
+  const toY = p => pT + cH * (1 - (p - minP) / (maxP - minP));
+  const sx  = i => pL + i * sw;
+
+  // Stair path
+  let line = `M ${sx(0)} ${toY(prices[0])}`;
+  let fill = `M ${sx(0)} ${pT + cH} L ${sx(0)} ${toY(prices[0])}`;
+  for (let i = 0; i < n; i++) {
+    line += ` H ${sx(i + 1)}`;
+    fill += ` H ${sx(i + 1)}`;
+    if (i < n - 1) { line += ` V ${toY(prices[i+1])}`; fill += ` V ${toY(prices[i+1])}`; }
+  }
+  fill += ` V ${pT + cH} Z`;
+
+  let svg = `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:${H}px">`;
+  // Model label
+  svg += `<text x="${W/2}" y="16" text-anchor="middle" font-size="11" font-weight="600" fill="${color}" font-family="-apple-system,sans-serif">${modelLabel}</text>`;
+  // Fill + line
+  svg += `<path d="${fill}" fill="${color}" opacity="0.08"/>`;
+  svg += `<path d="${line}" fill="none" stroke="${color}" stroke-width="1.8" stroke-linejoin="round"/>`;
+  // Dots + labels
+  for (let i = 0; i < n; i++) {
+    const xm = sx(i) + sw / 2;
+    const y  = toY(prices[i]);
+    svg += `<circle cx="${xm}" cy="${y}" r="2.5" fill="${color}"/>`;
+    svg += `<text x="${xm}" y="${y - 6}" text-anchor="middle" font-size="9.5" fill="#1a1a18" font-family="-apple-system,sans-serif" font-weight="500">$${prices[i].toFixed(2)}M</text>`;
+    svg += `<text x="${xm}" y="${H - 8}" text-anchor="middle" font-size="9" fill="#888780" font-family="-apple-system,sans-serif">Lista ${i}</text>`;
+  }
+  svg += '</svg>';
+  return svg;
+}
+
+function renderPriceStairs() {
+  const a = document.getElementById('stair-modelo-a');
+  const b = document.getElementById('stair-modelo-b');
+  if (a) a.innerHTML = makePriceStairSVG([2.85, 3.20, 3.36, 3.53, 3.70], '#378ADD', 'Modelo A (2 recámaras)');
+  if (b) b.innerHTML = makePriceStairSVG([2.24, 2.50, 2.63, 2.76, 2.90], '#1D9E75', 'Modelo B (1 recámara)');
+}
+
+function renderIngresosBar() {
+  const container = document.getElementById('ingresos-bar-container');
+  if (!container) return;
+
+  const segments = [
+    { label: 'Anticipos de clientes',            sub: '$57.5M · 68.3%', pct: 68.3, color: '#1D9E75' },
+    { label: 'Unidades de intercambio (terreno)', sub: '$10.9M · 12.9%', pct: 12.9, color: '#378ADD' },
+    { label: 'Financiamiento externo',            sub: '$17.1M · 18.8%', pct: 18.8, color: '#534AB7' },
+  ];
+
+  const W = 390, H = 300;
+  const bX = 20, bY = 20, bW = 58, bH = 260;
+  const labelX = bX + bW + 28;
+  const step = bH / segments.length;
+
+  let curY = bY;
+  segments.forEach((seg, i) => {
+    seg.h = seg.pct / 100 * bH;
+    seg.y = curY;
+    seg.midY = curY + seg.h / 2;
+    seg.labelY = bY + (i + 0.5) * step;
+    curY += seg.h;
+  });
+
+  let svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" style="width:${W}px;max-height:${H}px">`;
+  svg += `<defs><clipPath id="bar-clip"><rect x="${bX}" y="${bY}" width="${bW}" height="${bH}" rx="5"/></clipPath></defs>`;
+
+  svg += `<g clip-path="url(#bar-clip)">`;
+  segments.forEach((seg, i) => {
+    svg += `<rect x="${bX}" y="${seg.y}" width="${bW}" height="${seg.h}" fill="${seg.color}"/>`;
+    if (i > 0) svg += `<line x1="${bX}" y1="${seg.y}" x2="${bX+bW}" y2="${seg.y}" stroke="rgba(255,255,255,0.5)" stroke-width="1"/>`;
+  });
+  svg += `</g>`;
+  svg += `<rect x="${bX}" y="${bY}" width="${bW}" height="${bH}" fill="none" stroke="rgba(0,0,0,0.08)" stroke-width="1" rx="5"/>`;
+
+  segments.forEach(seg => {
+    svg += `<line x1="${bX+bW}" y1="${seg.midY}" x2="${labelX-8}" y2="${seg.labelY}" stroke="${seg.color}" stroke-width="1" stroke-dasharray="3,2" opacity="0.6"/>`;
+    svg += `<circle cx="${labelX}" cy="${seg.labelY}" r="5" fill="${seg.color}"/>`;
+    svg += `<text x="${labelX+13}" y="${seg.labelY-5}" font-size="12" font-weight="500" fill="#1a1a18" font-family="-apple-system,sans-serif">${seg.label}</text>`;
+    svg += `<text x="${labelX+13}" y="${seg.labelY+11}" font-size="11" fill="#888780" font-family="-apple-system,sans-serif">${seg.sub}</text>`;
+  });
+
+  svg += '</svg>';
+  container.innerHTML = svg;
+}
+
+function renderBuilding() {
+  const d = chartData.egresos;
+  const container = document.getElementById('egresos-container');
+  if (!d || !container) return;
+
+  const total = d.totals.reduce((a,b)=>a+b,0);
+  if (!total) return;
+
+  // ── Building SVG (left column, narrower) ──
+  const W = 380, H = 330;
+  const bX = 20, bY = 24, bW = 130, bH = 265;
+  const labelX = bX + bW + 36;
+
+  const cats = d.labels.map((lbl, i) => ({
+    label: lbl, color: d.colors[i], val: d.totals[i],
+    pct: (d.totals[i] / total * 100).toFixed(1),
+  }));
+
+  const floors = cats.map(c => ({ ...c, h: Math.max(5, c.val / total * bH) }));
+  let curY = bY + bH;
+  floors.forEach(f => { f.y = curY - f.h; f.midY = f.y + f.h / 2; curY = f.y; });
+  const step = bH / cats.length;
+  floors.forEach((f, i) => { f.labelY = bY + bH - (i + 0.5) * step; });
+
+  let svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" style="width:${W}px;flex-shrink:0;max-height:${H}px">`;
+
+  const topFloor = floors[floors.length - 1];
+  const roofH = 22;
+  svg += `<polygon points="${bX},${bY+roofH} ${bX+bW/2},${bY} ${bX+bW},${bY+roofH}" fill="${topFloor.color}" opacity="0.75"/>`;
+
+  floors.forEach(f => {
+    svg += `<rect x="${bX}" y="${f.y}" width="${bW}" height="${f.h}" fill="${f.color}"/>`;
+    svg += `<line x1="${bX}" y1="${f.y}" x2="${bX+bW}" y2="${f.y}" stroke="rgba(255,255,255,0.45)" stroke-width="1"/>`;
+    if (f.h >= 18) {
+      const wy = f.y + f.h / 2 - 4;
+      const wsp = bW / 4;
+      for (let wi = 1; wi <= 3; wi++) {
+        svg += `<rect x="${bX+wi*wsp-5}" y="${wy}" width="7" height="7" rx="1" fill="rgba(255,255,255,0.22)"/>`;
+      }
+    }
+  });
+
+  svg += `<rect x="${bX}" y="${bY+roofH}" width="${bW}" height="${bH-roofH}" fill="none" stroke="rgba(0,0,0,0.08)" stroke-width="1"/>`;
+
+  floors.forEach(f => {
+    svg += `<line x1="${bX+bW}" y1="${f.midY}" x2="${labelX-8}" y2="${f.labelY}" stroke="${f.color}" stroke-width="1" stroke-dasharray="3,2" opacity="0.55"/>`;
+    svg += `<circle cx="${labelX}" cy="${f.labelY}" r="5" fill="${f.color}"/>`;
+    svg += `<text x="${labelX+13}" y="${f.labelY-4}" font-size="11" font-weight="500" fill="#1a1a18" font-family="-apple-system,sans-serif">${f.label}</text>`;
+    svg += `<text x="${labelX+13}" y="${f.labelY+10}" font-size="10" fill="#888780" font-family="-apple-system,sans-serif">${fmtM(f.val)} &middot; ${f.pct}%</text>`;
+  });
+
+  svg += '</svg>';
+
+  // ── Desglose de costos table (right column) ──
+  const lines = chartData.egresosLines || [];
+  const sep = 'border-bottom:0.5px solid rgba(0,0,0,0.04)';
+  const tableRows = lines.map(l => {
+    const bg    = l.isTotal ? 'background:#f5f4f0;' : '';
+    const fw    = l.isTotal ? 'font-weight:600;' : '';
+    const pl    = l.isTotal ? '8px' : '20px';
+    const badge = `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${l.groupColor}"></span>`;
+    return `<tr style="${bg}">
+      <td style="padding:5px 6px;${sep};text-align:center;width:22px">${badge}</td>
+      <td style="padding:5px 8px 5px ${pl};${sep};font-size:12px;color:#1a1a18;${fw}line-height:1.4">${l.cat}</td>
+      <td style="padding:5px 0 5px 8px;${sep};font-size:12px;color:#1a1a18;text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;${fw}">${fmtM(l.amt)}</td>
+    </tr>`;
+  }).join('');
+
+  const thStyle = 'padding:4px 8px 7px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.7px;color:#888780;border-bottom:0.5px solid rgba(0,0,0,0.10)';
+  const tableHTML = `
+    <div style="flex:1;padding-left:24px;border-left:0.5px solid rgba(0,0,0,0.06);overflow-y:auto;max-height:330px">
+      <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:#888780;margin-bottom:10px;padding-bottom:8px;border-bottom:0.5px solid rgba(0,0,0,0.06)">Desglose de costos</div>
+      <table style="width:100%;border-collapse:collapse">
+        <thead>
+          <tr>
+            <th style="${thStyle};width:22px;text-align:center">Tipo</th>
+            <th style="${thStyle};text-align:left">Categoría</th>
+            <th style="${thStyle};text-align:right">Presupuestado</th>
+          </tr>
+        </thead>
+        <tbody>${tableRows}</tbody>
+      </table>
+    </div>`;
+
+  container.innerHTML = `<div style="flex-shrink:0">${svg}</div>${tableHTML}`;
+}
+
+function renderCreditoCharts() {
+  // ── Chart 1: Requerimiento de Financiamiento (green = positive, red = negative) ──
+  if (creditoFinanChart) { creditoFinanChart.destroy(); creditoFinanChart = null; }
+  const canvasFinan = document.getElementById('credito-finan-chart');
+  if (canvasFinan) {
+    const df = chartData.financiamiento;
+    if (df && df.labels.length) {
+      // Update "Inicio disposición" dynamic value
+      const inicioEl = document.getElementById('inicio-disposicion');
+      if (inicioEl && df.firstMonth) inicioEl.textContent = df.firstMonth;
+
+      creditoFinanChart = new Chart(canvasFinan, {
+        type: 'bar',
+        data: {
+          labels: df.labels,
+          datasets: [{
+            data: df.values,
+            backgroundColor: df.values.map(v => v >= 0 ? '#1D9E75' : '#E24B4A'),
+            borderRadius: 3,
+            borderSkipped: false,
+          }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: { callbacks: { label: c => ` ${fmtAx(c.raw)}` } }
+          },
+          scales: {
+            x: { grid: { display: false }, ticks: { font: { size: 9 }, color: '#888780', maxRotation: 40 } },
+            y: { grid: { color: 'rgba(0,0,0,.04)' }, ticks: { callback: fmtAx, font: { size: 9 }, color: '#888780' } }
+          }
+        }
+      });
+    }
+  }
+
+  // ── Chart 2: Intereses mensuales (purple bars) ──
+  if (creditoChart) { creditoChart.destroy(); creditoChart = null; }
+  const canvas = document.getElementById('credito-chart');
+  if (!canvas) return;
+  const d = chartData.intereses;
+  if (!d || !d.labels.length) return;
+
+  creditoChart = new Chart(canvas, {
+    type: 'bar',
+    data: {
+      labels: d.labels,
+      datasets: [{
+        data: d.values,
+        backgroundColor: '#534AB7',
+        borderRadius: 3,
+        borderSkipped: false,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: c => ` ${fmtAx(c.raw)}` } }
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { size: 9 }, color: '#888780', maxRotation: 40 } },
+        y: { grid: { color: 'rgba(0,0,0,.04)' }, ticks: { callback: fmtAx, font: { size: 9 }, color: '#888780' } }
+      }
+    }
+  });
+}
+
+function renderFlujo(type) {
+  if (flujoChart) { flujoChart.destroy(); flujoChart = null; }
+  const d = chartData.flujo; if (!d) return;
+
+  const configs = {
+    neto:    { data: d.neto,    color: P.green, fill: P.greenFill, label: 'Flujo Neto' },
+    netoFin: { data: d.netoFin, color: P.blue,  fill: P.blueFill,  label: 'Flujo Neto con Financiamiento' },
+    acum:    { data: d.acum,    color: P.blue,  fill: P.blueFill,  label: 'Flujo Acumulado' },
+  };
+  const cfg = configs[type] || configs.neto;
+
+  flujoChart = new Chart(document.getElementById('flujo-chart'), {
+    type: 'line',
+    data: {
+      labels: d.labels,
+      datasets: [{
+        label: cfg.label,
+        data: cfg.data,
+        borderColor: cfg.color,
+        backgroundColor: cfg.fill,
+        fill: type === 'acum',
+        tension: 0.4,
+        borderWidth: 2,
+        pointRadius: 3,
+        pointHoverRadius: 5,
+      }]
+    },
+    options: { ...baseOpts,
+      plugins: { ...baseOpts.plugins,
+        tooltip: { callbacks: { label: c => ` ${c.dataset.label}: ${fmtAx(c.raw)}` } }
+      },
+      scales: {
+        x: { grid:{display:false}, ticks:{font:{size:11}, color:'#888780'} },
+        y: { grid:{color:'rgba(0,0,0,.04)'}, ticks:{callback:fmtAx, font:{size:11}, color:'#888780'} }
+      }
+    }
+  });
+}
+
+function switchFlujoTab(tab, btn) {
+  currentFlujoTab = tab;
+  document.querySelectorAll('.flujo-tab-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  renderFlujo(tab);
+}
+
+/* ══════════════════════════════════════
+   CSV RAW TABLES
+══════════════════════════════════════ */
+function buildCsvTable(name, rows) {
+  if (!rows.length) return '';
+  const maxCols = Math.max(...rows.map(r=>r.length));
+  const thead = `<tr>${rows[0].map(h=>`<th>${h||''}</th>`).join('')}</tr>`;
+  const tbody = rows.slice(1).map(r =>
+    `<tr>${Array.from({length:maxCols},(_,i)=>`<td>${r[i]||''}</td>`).join('')}</tr>`
+  ).join('');
+  return `<h4 style="margin:18px 0 8px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--label)">${name}</h4>
+          <table class="csv-table"><thead>${thead}</thead><tbody>${tbody}</tbody></table>`;
+}
+
+function toggleCsvTables() {
+  const w = document.getElementById('csv-tables-wrap');
+  const b = document.querySelector('.csv-toggle');
+  w.classList.toggle('open');
+  b.textContent = w.classList.contains('open') ? 'Ocultar tablas' : 'Mostrar tablas';
+}
+
+/* ══════════════════════════════════════
+   MAIN LOAD
+══════════════════════════════════════ */
+async function loadAllData() {
+  const bar = document.getElementById('loading-bar');
+  bar.classList.add('active');
+  document.getElementById('last-updated').textContent = 'Actualizando…';
+
+  try {
+    const [rCF, rRes, rEg, rIng] = await Promise.allSettled([
+      fetchSheet(SHEETS.cf), fetchSheet(SHEETS.resumen),
+      fetchSheet(SHEETS.egresos), fetchSheet(SHEETS.ingresos),
+    ]);
+
+    const parse = r => r.status === 'fulfilled' ? parseCSV(r.value) : [];
+    const rowsCF  = parse(rCF),  rowsRes = parse(rRes),
+          rowsEg  = parse(rEg),  rowsIng = parse(rIng);
+
+    if (rowsRes.length) processResumen(rowsRes);
+    if (rowsCF.length)  processCF(rowsCF);
+    if (rowsEg.length)  processEgresos(rowsEg);
+    if (rowsIng.length) processIngresos(rowsIng);
+
+    if (!chartData.flujo)   processCF([]);
+    if (!chartData.egresos) processEgresos([]);
+
+    document.getElementById('csv-tables-content').innerHTML = [
+      buildCsvTable('CF — Flujo de Caja (P)', rowsCF),
+      buildCsvTable('Resumen', rowsRes),
+      buildCsvTable('Egresos (P)', rowsEg),
+      buildCsvTable('Ingresos (P)', rowsIng),
+    ].join('');
+
+    renderIngresosBar();
+    renderPriceStairs();
+    renderBuilding();
+    renderCreditoCharts();
+    renderFlujo(currentFlujoTab);
+
+    const now = new Date().toLocaleString('es-MX',{dateStyle:'medium',timeStyle:'short'});
+    document.getElementById('last-updated').textContent = 'Actualizado: ' + now;
+    document.getElementById('footer-time').textContent  = now;
+
+  } catch (e) {
+    document.getElementById('last-updated').textContent = 'Error al cargar';
+    console.error(e);
+  } finally {
+    bar.classList.remove('active');
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  processResumen([]);
+  renderIngresosBar();
+  renderPriceStairs();
+  loadAllData();
+});
+</script>
+</body>
+</html>
